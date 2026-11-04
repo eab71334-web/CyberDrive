@@ -1,0 +1,34 @@
+name: Build iOS IPA (unsigned)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate platform folders
+        run: flutter create . --platforms=android,ios --org com.cyberdrive --project-name cyberdrive
+      - name: Patch permissions
+        run: python3 tool/patch_platforms.py
+      - run: flutter pub get
+      - name: Generate icons
+        run: dart run flutter_launcher_icons
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr CyberDrive-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CyberDrive-ios-unsigned
+          path: CyberDrive-unsigned.ipa
